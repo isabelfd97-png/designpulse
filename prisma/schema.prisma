@@ -1,0 +1,80 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+//
+// Prisma v7: url is configured in prisma.config.ts (not here)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model Article {
+  id                String   @id @default(cuid())
+  title             String   @db.Text
+  summary           String?  @db.Text
+  sourceUrl         String   @unique
+  contentType       String   // "Tool Release" | "Industry News" | "Tutorial" | "Case Study"
+  relevanceScore    Float    @default(0)
+  deduplicationHash String?  @unique
+  publishedAt       DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  feedId String?
+  feed   Feed?   @relation(fields: [feedId], references: [id], onDelete: SetNull)
+
+  metadata Json? // {author, domain, imageUrl, wordCount, language}
+
+  @@index([feedId])
+  @@index([relevanceScore])
+  @@index([publishedAt])
+}
+
+model Feed {
+  id          String    @id @default(cuid())
+  name        String
+  feedUrl     String    @unique
+  errorCount  Int       @default(0)
+  lastFetchAt DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+
+  articles Article[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  createdAt    DateTime @default(now())
+
+  savedArticles SavedArticle[]
+  dismissals    Dismissal[]
+}
+
+model SavedArticle {
+  id        String   @id @default(cuid())
+  userId    String
+  articleId String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@index([userId])
+}
+
+model Dismissal {
+  id        String   @id @default(cuid())
+  userId    String
+  articleId String
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, articleId])
+  @@index([userId])
+}
