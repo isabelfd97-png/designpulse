@@ -1,21 +1,19 @@
 import Redis from 'ioredis';
+import { env } from './env';
 
-// Lazy singleton — only connect when first accessed
-let _redis: Redis | null = null;
+export const redis = new Redis(env.REDIS_URL, {
+  maxRetriesPerRequest: null, // REQUIRED for BullMQ — do not remove
+  enableReadyCheck: false,
+  enableOfflineQueue: false,
+  lazyConnect: true,
+});
 
-export function getRedis(): Redis {
-  if (!_redis) {
-    const redisUrl = process.env.REDIS_URL || 'redis://localhost:6379';
-    _redis = new Redis(redisUrl, {
-      maxRetriesPerRequest: null, // Required for BullMQ
-      enableReadyCheck: false,
-      enableOfflineQueue: false,
-    });
+redis.on('error', (err: Error) => {
+  console.error('[Redis] Connection error:', err.message);
+});
 
-    _redis.on('error', (err) => console.error('Redis error:', err));
+redis.on('connect', () => {
+  if (process.env.NODE_ENV !== 'production') {
+    console.log('[Redis] Connected');
   }
-  return _redis;
-}
-
-// Named export for direct use where env is already validated
-export const redis = getRedis;
+});
