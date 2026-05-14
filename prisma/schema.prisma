@@ -11,27 +11,7 @@ datasource db {
   provider = "postgresql"
 }
 
-model Article {
-  id                String   @id @default(cuid())
-  title             String   @db.Text
-  summary           String?  @db.Text
-  sourceUrl         String   @unique
-  contentType       String   // "Tool Release" | "Industry News" | "Tutorial" | "Case Study"
-  relevanceScore    Float    @default(0)
-  deduplicationHash String?  @unique
-  publishedAt       DateTime
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-
-  feedId String?
-  feed   Feed?   @relation(fields: [feedId], references: [id], onDelete: SetNull)
-
-  metadata Json? // {author, domain, imageUrl, wordCount, language}
-
-  @@index([feedId])
-  @@index([relevanceScore])
-  @@index([publishedAt])
-}
+// ─── Phase 2: Content Ingestion ──────────────────────────────────────────────
 
 model Feed {
   id          String    @id @default(cuid())
@@ -42,8 +22,38 @@ model Feed {
   isActive    Boolean   @default(true)
   createdAt   DateTime  @default(now())
 
-  articles Article[]
+  articles    Article[]
 }
+
+// ─── Phase 2 + 3: Articles ────────────────────────────────────────────────────
+
+model Article {
+  id                String   @id @default(cuid())
+  title             String   @db.Text
+  summary           String?  @db.Text
+  sourceUrl         String   @unique
+  contentType       String   @default("Industry News")
+  relevanceScore    Float    @default(0)
+  deduplicationHash String?  @unique
+  publishedAt       DateTime
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  feedId            String?
+  feed              Feed?    @relation(fields: [feedId], references: [id], onDelete: SetNull)
+
+  metadata          Json?    // {author, domain, imageUrl, wordCount, language}
+
+  savedBy           SavedArticle[]
+  dismissedBy       Dismissal[]
+
+  @@index([feedId])
+  @@index([relevanceScore])
+  @@index([publishedAt])
+  @@index([contentType])
+}
+
+// ─── Phase 4: Auth ────────────────────────────────────────────────────────────
 
 model User {
   id           String   @id @default(cuid())
@@ -55,17 +65,23 @@ model User {
   dismissals    Dismissal[]
 }
 
+// ─── Phase 4: Save / Like ────────────────────────────────────────────────────
+
 model SavedArticle {
   id        String   @id @default(cuid())
   userId    String
   articleId String
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
 
   @@unique([userId, articleId])
   @@index([userId])
+  @@index([articleId])
 }
+
+// ─── Phase 4: Dismiss ────────────────────────────────────────────────────────
 
 model Dismissal {
   id        String   @id @default(cuid())
@@ -73,8 +89,10 @@ model Dismissal {
   articleId String
   createdAt DateTime @default(now())
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  article   Article  @relation(fields: [articleId], references: [id], onDelete: Cascade)
 
   @@unique([userId, articleId])
   @@index([userId])
+  @@index([articleId])
 }
